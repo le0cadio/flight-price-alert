@@ -1,0 +1,23 @@
+# ===== Kotlin / Gradle =====
+.gradle/
+build/
+out/
+
+# ===== IntelliJ =====
+.idea/
+*.iml
+
+# ===== Logs =====
+logs/
+*.log
+
+# ===== Environment / Secrets =====
+.env
+application-local.conf
+secrets/
+*.key
+*.pem
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
