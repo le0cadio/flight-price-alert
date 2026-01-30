@@ -25,6 +25,7 @@ dependencies {
     // =========================
     implementation("io.ktor:ktor-server-core-jvm:2.3.7")
     implementation("io.ktor:ktor-server-netty-jvm:2.3.7")
+    implementation("io.ktor:ktor-server-call-logging-jvm:2.3.7")
 
     // =========================
     // KTOR CLIENT (HTTP)
