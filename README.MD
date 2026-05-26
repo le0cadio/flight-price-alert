@@ -34,6 +34,62 @@ Uso pessoal (2 usuários).
 ## Frequência de verificação
 Configurável (recomendado: a cada 6 horas)
 
+## Status Atual (MVP em andamento)
+
+- ✅ Infra básica Ktor pronta (`/` e `/health`)
+- ✅ Config centralizada por variáveis de ambiente (`Config.kt`)
+- ✅ Persistência local em memória (repositórios in-memory)
+- ✅ API de alertas (CRUD + toggle)
+- ✅ API de busca de preço (`/api/flights/search`)
+- ✅ API de histórico de preço (`/api/flights/price-history/{alertId}`)
+- ✅ Scheduler com start/stop/status
+- ✅ Simulação de envio de e-mail para fluxo local
+
+### Observação importante
+
+Neste momento o projeto está preparado para **rodar localmente em memória**.
+As configurações de banco (DB_URL/DB_USER/DB_PASSWORD) já existem para evolução futura,
+mas a implementação ativa usa armazenamento em memória para facilitar desenvolvimento.
+
+## Endpoints já disponíveis
+
+- `GET /health`
+- `GET /`
+- `GET /config`
+- `POST /api/flights/alerts`
+- `GET /api/flights/alerts`
+- `GET /api/flights/alerts/{id}`
+- `PUT /api/flights/alerts/{id}`
+- `DELETE /api/flights/alerts/{id}`
+- `POST /api/flights/alerts/{id}/toggle`
+- `GET /api/flights/search?origin=GRU&destination=BKK&departureDate=2026-09-01`
+- `GET /api/flights/price-history/{alertId}`
+- `POST /api/email/test`
+- `GET /api/scheduler/status`
+- `POST /api/scheduler/start`
+- `POST /api/scheduler/stop`
+
+## Rodando localmente
+
+Pré-requisito: Java 17+ configurado (`JAVA_HOME` + `java` no PATH).
+
+PowerShell:
+
+```powershell
+$env:PORT = "8080"
+$env:SCHEDULER_INTERVAL_HOURS = "6"
+$env:AMADEUS_CLIENT_ID = ""
+$env:AMADEUS_CLIENT_SECRET = ""
+$env:ALERT_RECIPIENT = ""
+./gradlew.bat run
+```
+
+Para rodar testes:
+
+```powershell
+./gradlew.bat test
+```
+
 ## TODO
 
 - 🔧 Infraestrutura
