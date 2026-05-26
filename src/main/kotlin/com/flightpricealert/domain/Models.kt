@@ -1,6 +1,7 @@
 package com.flightpricealert.domain
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Serializer
 import java.time.LocalDateTime
 
 @Serializable
@@ -11,6 +12,7 @@ data class FlightAlert(
     val targetPrice: Double,
     val airlines: List<String>? = null,
     val active: Boolean = true,
+    @Serializable(with = LocalDateTimeSerializer::class)
     val createdAt: LocalDateTime? = null
 )
 
@@ -19,6 +21,7 @@ data class PriceHistory(
     val id: Int? = null,
     val alertId: Int,
     val price: Double,
+    @Serializable(with = LocalDateTimeSerializer::class)
     val checkedAt: LocalDateTime
 )
 
@@ -27,6 +30,7 @@ data class NotificationLog(
     val id: Int? = null,
     val alertId: Int,
     val price: Double,
+    @Serializable(with = LocalDateTimeSerializer::class)
     val sentAt: LocalDateTime,
     val recipient: String? = null
 )

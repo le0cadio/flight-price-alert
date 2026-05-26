@@ -24,19 +24,19 @@ dependencies {
     // =========================
     // KTOR SERVER
     // =========================
-    implementation("io.ktor:ktor-server-core-jvm:2.3.7")
-    implementation("io.ktor:ktor-server-netty-jvm:2.3.7")
-    implementation("io.ktor:ktor-server-call-logging-jvm:2.3.7")
-    implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.7")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+    implementation("io.ktor:ktor-server-core-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-netty-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-call-logging-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.13")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.13")
 
     // =========================
     // KTOR CLIENT (HTTP)
     // =========================
-    implementation("io.ktor:ktor-client-core:2.3.7")
-    implementation("io.ktor:ktor-client-cio:2.3.7")
-    implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+    implementation("io.ktor:ktor-client-core:2.3.13")
+    implementation("io.ktor:ktor-client-cio:2.3.13")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.13")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.13")
 
     // JSON
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
@@ -47,12 +47,12 @@ dependencies {
     implementation("com.h2database:h2:2.2.220")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     // Mail
-    implementation("com.sun.mail:jakarta.mail:2.1.1")
+    implementation("com.sun.mail:javax.mail:1.6.2")
     // Logging
     implementation("ch.qos.logback:logback-classic:1.4.11")
 
     testImplementation(kotlin("test"))
-    testImplementation("io.ktor:ktor-server-tests-jvm:2.3.7")
+    testImplementation("io.ktor:ktor-server-tests-jvm:2.3.13")
 }
 
 tasks.test {

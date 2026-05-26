@@ -10,6 +10,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
+import java.time.YearMonth
 
 @Serializable
 data class SearchPriceResponse(
@@ -27,13 +28,27 @@ fun Route.flightRoutes() {
             val destination = call.request.queryParameters["destination"]
             val departureDate = call.request.queryParameters["departureDate"]
                 ?: LocalDate.now().plusMonths(1).withDayOfMonth(1).toString()
+            val endDate = call.request.queryParameters["endDate"]
+            val month = call.request.queryParameters["month"]
+            val airlines = call.request.queryParameters["airlines"]
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
 
             if (origin.isNullOrBlank() || destination.isNullOrBlank()) {
                 call.respond(HttpStatusCode.BadRequest, "origin and destination are required")
                 return@get
             }
 
-            val price = AppServices.monitorService().getLowestPrice(origin, destination, departureDate)
+            val monitor = AppServices.monitorService()
+            val price = when {
+                !month.isNullOrBlank() -> {
+                    val ym = YearMonth.parse(month)
+                    monitor.getLowestPriceByMonth(origin, destination, ym, airlines)
+                }
+                !endDate.isNullOrBlank() -> monitor.getLowestPriceByDateRange(origin, destination, departureDate, endDate, airlines)
+                else -> monitor.getLowestPrice(origin, destination, departureDate)
+            }
             call.respond(
                 SearchPriceResponse(
                     origin = origin,

@@ -3,6 +3,7 @@ package com.flightpricealert.scheduler
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import java.time.LocalDateTime
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration.Companion.milliseconds
 
 object SchedulerService {
@@ -13,15 +14,11 @@ object SchedulerService {
     private var worker: (suspend () -> Unit)? = null
     private var appScope: CoroutineScope? = null
     private var intervalHours: Long = 6
+    private val isRunning = AtomicBoolean(false)
 
-    fun configure(scope: CoroutineScope, intervalHours: Long, worker: suspend () -> Unit) {
-        this.appScope = scope
-        this.intervalHours = intervalHours
-        this.worker = worker
-    }
 
     fun start(scope: CoroutineScope, intervalHours: Long = 6, worker: suspend () -> Unit = {}) {
-        if (job != null) return
+        if (job != null || !isRunning.compareAndSet(false, true)) return
         this.appScope = scope
         this.intervalHours = intervalHours
         this.worker = worker
@@ -32,6 +29,7 @@ object SchedulerService {
                     log.info("Scheduler job started at {}", LocalDateTime.now())
                     this@SchedulerService.worker?.invoke()
                     lastRun = LocalDateTime.now()
+                    log.info("Scheduler job completed at {}", LocalDateTime.now())
                 } catch (t: Throwable) {
                     log.error("Scheduler run error", t)
                 }
@@ -49,6 +47,7 @@ object SchedulerService {
     fun stop() {
         job?.cancel()
         job = null
+        isRunning.set(false)
     }
 
     fun status(): String {

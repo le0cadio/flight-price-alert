@@ -8,6 +8,7 @@ import com.flightpricealert.repository.NotificationLogRepository
 import com.flightpricealert.repository.PriceHistoryRepository
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
+import java.time.YearMonth
 
 class PriceMonitorService(
     private val amadeusClient: AmadeusClient,
@@ -42,6 +43,20 @@ class PriceMonitorService(
         return amadeusClient.findLowestPrice(origin, destination, departureDate)?.toDouble()
     }
 
+    suspend fun getLowestPriceByMonth(origin: String, destination: String, month: YearMonth, airlines: List<String>? = null): Double? {
+        return amadeusClient.findLowestPriceByMonth(origin, destination, month, airlines)?.toDouble()
+    }
+
+    suspend fun getLowestPriceByDateRange(
+        origin: String,
+        destination: String,
+        startDate: String,
+        endDate: String,
+        airlines: List<String>? = null
+    ): Double? {
+        return amadeusClient.findLowestPriceByDateRange(origin, destination, startDate, endDate, airlines)?.toDouble()
+    }
+
     private fun maybeSendNotification(alert: FlightAlert, currentPrice: Double) {
         val alertId = alert.id ?: return
         if (currentPrice > alert.targetPrice) return
@@ -51,9 +66,15 @@ class PriceMonitorService(
 
         val recipients = listOfNotNull(System.getenv("ALERT_RECIPIENT"))
         if (recipients.isNotEmpty()) {
+            val htmlBody = com.flightpricealert.email.EmailTemplate.alertHtmlBody(
+                origin = alert.origin,
+                destination = alert.destination,
+                currentPrice = currentPrice,
+                targetPrice = alert.targetPrice
+            )
             emailService.sendAlert(
-                subject = "Flight alert ${alert.origin} -> ${alert.destination}",
-                body = "New price found: $currentPrice (target=${alert.targetPrice})",
+                subject = "✈️ Alerta de preço: ${alert.origin} → ${alert.destination}",
+                body = htmlBody,
                 recipients = recipients
             )
         }
