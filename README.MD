@@ -38,7 +38,7 @@ Configurável (recomendado: a cada 6 horas)
 
 - ✅ Infra básica Ktor pronta (`/` e `/health`)
 - ✅ Config centralizada por variáveis de ambiente (`Config.kt`)
-- ✅ Persistência local em memória (repositórios in-memory)
+- ✅ Persistência SQL em H2 (alertas, histórico e notificações)
 - ✅ API de alertas (CRUD + toggle)
 - ✅ API de busca de preço (`/api/flights/search`)
 - ✅ API de histórico de preço (`/api/flights/price-history/{alertId}`)
@@ -139,13 +139,7 @@ Suportar múltiplos destinatários
 
 - 🗄️ Persistência
 
-Definir modelo de dados de alerta
-
-Persistir alertas (H2 / SQLite)
-
-Persistir histórico de preços (opcional)
-
-Persistir estado de notificação (já enviado / não enviado)
+Persistência básica já implementada com H2 em memória
 
 - 🧠 Regras de Negócio
 
