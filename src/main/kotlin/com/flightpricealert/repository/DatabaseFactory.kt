@@ -50,8 +50,14 @@ object DatabaseFactory {
         }
     }
 
+    fun ping(): Boolean = try {
+        useConnection { connection -> connection.isValid(2) }
+    } catch (_: Throwable) {
+        false
+    }
+
     private fun createSchema() {
-        DriverManager.getConnection(configuredUrl(), activeDbUser, activeDbPassword).use { connection ->
+        DriverManager.getConnection(activeDbUrl, activeDbUser, activeDbPassword).use { connection ->
             connection.createStatement().use { statement ->
                 statement.executeUpdate(
                     """
@@ -92,8 +98,6 @@ object DatabaseFactory {
             }
         }
     }
-
-    private fun configuredUrl(): String = activeDbUrl
 }
 
 

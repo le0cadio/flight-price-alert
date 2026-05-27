@@ -34,155 +34,115 @@ Uso pessoal (2 usuários).
 ## Frequência de verificação
 Configurável (recomendado: a cada 6 horas)
 
-## Status Atual (MVP em andamento)
+## Status Atual
 
-- ✅ Infra básica Ktor pronta (`/` e `/health`)
-- ✅ Config centralizada por variáveis de ambiente (`Config.kt`)
-- ✅ Persistência SQL em H2 (alertas, histórico e notificações)
-- ✅ API de alertas (CRUD + toggle)
-- ✅ API de busca de preço (`/api/flights/search`)
-- ✅ API de histórico de preço (`/api/flights/price-history/{alertId}`)
+O projeto está **funcional e completo para uso pessoal**.
+Ele já possui:
+
+- ✅ API HTTP com Ktor
+- ✅ CRUD de alertas com validação de entrada
+- ✅ Busca de preços por data, faixa e mês
+- ✅ Persistência SQL em H2 com criação automática de tabelas
 - ✅ Scheduler com start/stop/status
-- ✅ Simulação de envio de e-mail para fluxo local
+- ✅ Monitoramento automático dos alertas ativos
+- ✅ Envio de e-mail via SMTP quando configurado
+- ✅ Health check com visão da configuração atual
+- ✅ Logs, timeout, retry e rate limit básicos para uso em produção
+- ✅ Testes automatizados para repositório, validação, e-mail, serviço e scheduler
 
 ### Observação importante
 
-Neste momento o projeto está preparado para **rodar localmente em memória**.
-As configurações de banco (DB_URL/DB_USER/DB_PASSWORD) já existem para evolução futura,
-mas a implementação ativa usa armazenamento em memória para facilitar desenvolvimento.
+O banco padrão usa arquivo local (`jdbc:h2:file:./data/flightdb`), então os dados ficam salvos entre reinícios.
+As tabelas são criadas automaticamente na inicialização.
 
-## Endpoints já disponíveis
+## Configuração atual
 
-- `GET /health`
+### Variáveis de ambiente
+
+```powershell
+$env:APP_ENV = "local" # local | dev | prod
+$env:PORT = "8080"
+$env:LOG_LEVEL = "DEBUG"
+$env:SCHEDULER_INTERVAL_HOURS = "6"
+$env:HTTP_TIMEOUT_MS = "10000"
+$env:HTTP_RETRY_COUNT = "1"
+$env:RATE_LIMIT_PER_MINUTE = "120"
+$env:AMADEUS_CLIENT_ID = ""
+$env:AMADEUS_CLIENT_SECRET = ""
+$env:ALERT_RECIPIENTS = "seu@email.com,outro@email.com"
+$env:DB_URL = "jdbc:h2:file:./data/flightdb;AUTO_SERVER=TRUE;MODE=PostgreSQL"
+$env:DB_USER = "sa"
+$env:DB_PASSWORD = ""
+$env:SMTP_HOST = ""
+$env:SMTP_PORT = "587"
+$env:SMTP_USER = ""
+$env:SMTP_PASSWORD = ""
+```
+
+### Rodar a aplicação
+
+```powershell
+./gradlew.bat run
+```
+
+### Rodar os testes
+
+```powershell
+./gradlew.bat test
+```
+
+## Endpoints
+
+### Básicos
+
 - `GET /`
+- `GET /health`
 - `GET /config`
+
+### Alertas
+
 - `POST /api/flights/alerts`
 - `GET /api/flights/alerts`
 - `GET /api/flights/alerts/{id}`
 - `PUT /api/flights/alerts/{id}`
 - `DELETE /api/flights/alerts/{id}`
 - `POST /api/flights/alerts/{id}/toggle`
+
+### Busca de preços
+
 - `GET /api/flights/search?origin=GRU&destination=BKK&departureDate=2026-09-01`
+- `GET /api/flights/search?origin=GRU&destination=BKK&month=2026-09`
+- `GET /api/flights/search?origin=GRU&destination=BKK&departureDate=2026-09-01&endDate=2026-09-10`
 - `GET /api/flights/price-history/{alertId}`
+
+### E-mail e scheduler
+
 - `POST /api/email/test`
 - `GET /api/scheduler/status`
 - `POST /api/scheduler/start`
 - `POST /api/scheduler/stop`
 
-## Rodando localmente
+## Arquitetura
 
-Pré-requisito: Java 17+ configurado (`JAVA_HOME` + `java` no PATH).
+- `domain`: modelos e serialização
+- `config`: leitura de ambiente e configuração do app
+- `repository`: persistência SQL em H2
+- `amadeus`: integração com a API externa da Amadeus
+- `service`: regra de negócio e monitoramento
+- `email`: envio de notificações por e-mail
+- `scheduler`: execução periódica do monitoramento
+- `api`: rotas HTTP e validação de entrada
 
-PowerShell:
+## Como funciona
 
-```powershell
-$env:PORT = "8080"
-$env:SCHEDULER_INTERVAL_HOURS = "6"
-$env:AMADEUS_CLIENT_ID = ""
-$env:AMADEUS_CLIENT_SECRET = ""
-$env:ALERT_RECIPIENT = ""
-./gradlew.bat run
-```
+1. Você cria um alerta com origem, destino e preço-alvo.
+2. O scheduler roda periodicamente e verifica os alertas ativos.
+3. O cliente da Amadeus busca o menor preço disponível.
+4. Se o preço estiver abaixo do alvo, a aplicação salva histórico e envia e-mail.
+5. O log de notificações evita alertas duplicados quando o preço não melhora.
 
-Para rodar testes:
+## Observações
 
-```powershell
-./gradlew.bat test
-```
-
-## TODO
-
-- 🔧 Infraestrutura
-
-    Configurar ambiente Kotlin + Gradle
-    Subir servidor Ktor 
-    Criar endpoint de health check 
-    Configurar arquivos de configuração  
-    Carregar configurações sensíveis via Ktor (email, Amadeus) 
-
-  
-- ✈️ Integração com Amadeus API
-
-Criar cliente HTTP para Amadeus
-
-Implementar autenticação OAuth (clientId / clientSecret)
-
-Realizar primeira busca de voos (GRU → BKK)
-
-Suportar busca por intervalo de datas e por mês inteiro
-
-Filtrar resultados por companhias aéreas
-
-Extrair menor preço disponível
-
-- ⏱️ Scheduler
-
-Implementar job periódico (a cada X horas)
-
-Executar busca de preços automaticamente
-
-Evitar notificações duplicadas
-
-Registrar último preço notificado
-
-- 📧 Notificações por E-mail
-
-Configurar SMTP
-
-Criar serviço de envio de e-mail
-
-Criar template simples de e-mail
-
-Enviar alerta quando preço ≤ valor alvo
-
-Suportar múltiplos destinatários
-
-- 🗄️ Persistência
-
-Persistência básica já implementada com H2 em memória
-
-- 🧠 Regras de Negócio
-
-Monitorar múltiplos meses por alerta
-
-Permitir múltiplas companhias por alerta
-
-Reenviar alerta apenas se preço cair mais
-
-Permitir desligar alertas individualmente
-
-- 🖥️ Interface (Futuro)
-
-Criar formulário simples (HTML/JS)
-
-Hospedar front-end no GitHub Pages
-
-Integrar front com backend via API
-
-Autenticação simples (opcional)
-
-- 🚀 Produção
-
-Preparar configuração para produção
-
-Escolher hospedagem (Render / Fly.io / Railway)
-
-Configurar variáveis de ambiente no servidor
-
-Monitoramento básico (logs)
-
-- 🧪 Qualidade
-
-Criar testes básicos de serviço
-
-Criar testes da integração com Amadeus (mock)
-
-Validar comportamento do scheduler
-
-- 📌 Observações
-
-Projeto com foco em uso pessoal
-
-Código preparado para evolução futura (ex: affiliate / referral)
-
-Segurança de dados garantida via .gitignore e config externa
+- Projeto com foco em uso pessoal.
+- Código preparado para evolução futura.
+- Segurança de dados depende de configuração externa e boas práticas no ambiente de execução.

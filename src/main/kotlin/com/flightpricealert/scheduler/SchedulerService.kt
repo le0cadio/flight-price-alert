@@ -18,6 +18,7 @@ object SchedulerService {
 
 
     fun start(scope: CoroutineScope, intervalHours: Long = 6, worker: suspend () -> Unit = {}) {
+        require(intervalHours > 0) { "intervalHours must be greater than zero" }
         if (job != null || !isRunning.compareAndSet(false, true)) return
         this.appScope = scope
         this.intervalHours = intervalHours
@@ -53,6 +54,15 @@ object SchedulerService {
     fun status(): String {
         val running = job?.isActive == true
         return "running=$running, startedAt=$startedAt, lastRun=$lastRun, intervalHours=$intervalHours"
+    }
+
+    internal fun resetForTests() {
+        stop()
+        lastRun = null
+        startedAt = null
+        worker = null
+        appScope = null
+        intervalHours = 6
     }
 }
 

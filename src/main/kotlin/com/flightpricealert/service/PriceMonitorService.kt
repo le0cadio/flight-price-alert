@@ -1,8 +1,9 @@
 package com.flightpricealert.service
 
-import com.flightpricealert.amadeus.AmadeusClient
+import com.flightpricealert.amadeus.FlightPriceProvider
 import com.flightpricealert.domain.FlightAlert
-import com.flightpricealert.email.EmailService
+import com.flightpricealert.email.EmailNotifier
+import com.flightpricealert.email.EmailSendResult
 import com.flightpricealert.repository.AlertRepository
 import com.flightpricealert.repository.NotificationLogRepository
 import com.flightpricealert.repository.PriceHistoryRepository
@@ -11,8 +12,9 @@ import java.time.LocalDate
 import java.time.YearMonth
 
 class PriceMonitorService(
-    private val amadeusClient: AmadeusClient,
-    private val emailService: EmailService
+    private val priceProvider: FlightPriceProvider,
+    private val emailService: EmailNotifier,
+    private val alertRecipients: List<String>
 ) {
     private val log = LoggerFactory.getLogger(PriceMonitorService::class.java)
 
@@ -40,11 +42,11 @@ class PriceMonitorService(
     }
 
     suspend fun getLowestPrice(origin: String, destination: String, departureDate: String): Double? {
-        return amadeusClient.findLowestPrice(origin, destination, departureDate)?.toDouble()
+        return priceProvider.findLowestPrice(origin, destination, departureDate)?.toDouble()
     }
 
     suspend fun getLowestPriceByMonth(origin: String, destination: String, month: YearMonth, airlines: List<String>? = null): Double? {
-        return amadeusClient.findLowestPriceByMonth(origin, destination, month, airlines)?.toDouble()
+        return priceProvider.findLowestPriceByMonth(origin, destination, month, airlines)?.toDouble()
     }
 
     suspend fun getLowestPriceByDateRange(
@@ -54,7 +56,7 @@ class PriceMonitorService(
         endDate: String,
         airlines: List<String>? = null
     ): Double? {
-        return amadeusClient.findLowestPriceByDateRange(origin, destination, startDate, endDate, airlines)?.toDouble()
+        return priceProvider.findLowestPriceByDateRange(origin, destination, startDate, endDate, airlines)?.toDouble()
     }
 
     private fun maybeSendNotification(alert: FlightAlert, currentPrice: Double) {
@@ -64,7 +66,7 @@ class PriceMonitorService(
         val lastSent = NotificationLogRepository.lastSentPrice(alertId)
         if (lastSent != null && currentPrice >= lastSent) return
 
-        val recipients = listOfNotNull(System.getenv("ALERT_RECIPIENT"))
+        val recipients = alertRecipients.distinct()
         if (recipients.isNotEmpty()) {
             val htmlBody = com.flightpricealert.email.EmailTemplate.alertHtmlBody(
                 origin = alert.origin,
@@ -72,11 +74,15 @@ class PriceMonitorService(
                 currentPrice = currentPrice,
                 targetPrice = alert.targetPrice
             )
-            emailService.sendAlert(
+            when (val result = emailService.sendAlert(
                 subject = "✈️ Alerta de preço: ${alert.origin} → ${alert.destination}",
                 body = htmlBody,
                 recipients = recipients
-            )
+            )) {
+                is EmailSendResult.Sent -> log.info("Email dispatched to {} for alert {}", result.recipients, alertId)
+                is EmailSendResult.Skipped -> log.warn("Email skipped for alert {}: {}", alertId, result.reason)
+                is EmailSendResult.Failed -> log.warn("Email failed for alert {}: {}", alertId, result.reason)
+            }
         }
 
         NotificationLogRepository.add(alertId = alertId, price = currentPrice, recipient = recipients.firstOrNull())

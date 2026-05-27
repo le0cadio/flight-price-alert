@@ -1,6 +1,7 @@
 package com.flightpricealert.repository
 
 import com.flightpricealert.config.AppConfig
+import com.flightpricealert.config.AppEnvironment
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,9 +12,11 @@ import java.time.LocalDateTime
 
 class RepositoryPersistenceTest {
     private val testConfig = AppConfig(
+        appEnvironment = AppEnvironment.LOCAL,
         port = 8080,
         amadeusClientId = null,
         amadeusClientSecret = null,
+        alertRecipients = listOf("user@example.com"),
         smtpHost = null,
         smtpPort = 587,
         smtpUser = null,
@@ -21,7 +24,11 @@ class RepositoryPersistenceTest {
         dbUrl = "jdbc:h2:mem:flightdb_test;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
         dbUser = "sa",
         dbPassword = "",
-        schedulerIntervalHours = 6L
+        schedulerIntervalHours = 6L,
+        logLevel = "DEBUG",
+        requestTimeoutMillis = 5000L,
+        requestRetryCount = 1,
+        rateLimitPerMinute = 120
     )
 
     @BeforeTest

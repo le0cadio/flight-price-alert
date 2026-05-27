@@ -6,14 +6,28 @@ import com.flightpricealert.email.ConfigHolder
 import com.flightpricealert.email.EmailService
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
 
 object AppServices {
+    private lateinit var appConfigRef: AppConfig
     private lateinit var monitorServiceRef: PriceMonitorService
     private lateinit var emailServiceRef: EmailService
 
     fun init(config: AppConfig) {
-        val httpClient = HttpClient(CIO)
-        val amadeusClient = AmadeusClient(httpClient, config.amadeusClientId, config.amadeusClientSecret)
+        appConfigRef = config
+        val httpClient = HttpClient(CIO) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = config.requestTimeoutMillis
+                connectTimeoutMillis = config.requestTimeoutMillis
+                socketTimeoutMillis = config.requestTimeoutMillis
+            }
+        }
+        val amadeusClient = AmadeusClient(
+            httpClient,
+            config.amadeusClientId,
+            config.amadeusClientSecret,
+            requestRetryCount = config.requestRetryCount
+        )
         val emailService = EmailService(
             ConfigHolder(
                 smtpHost = config.smtpHost,
@@ -24,8 +38,10 @@ object AppServices {
         )
         emailServiceRef = emailService
 
-        monitorServiceRef = PriceMonitorService(amadeusClient, emailService)
+        monitorServiceRef = PriceMonitorService(amadeusClient, emailService, config.alertRecipients)
     }
+
+    fun config(): AppConfig = appConfigRef
 
     fun monitorService(): PriceMonitorService = monitorServiceRef
 

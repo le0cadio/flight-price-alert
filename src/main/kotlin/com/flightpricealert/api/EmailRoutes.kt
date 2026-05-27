@@ -1,6 +1,7 @@
 package com.flightpricealert.api
 
 import com.flightpricealert.service.AppServices
+import com.flightpricealert.email.EmailSendResult
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.request.receive
@@ -20,13 +21,23 @@ data class EmailTestRequest(
 fun Route.emailRoutes() {
     route("/email") {
         post("/test") {
-            val req = call.receive<EmailTestRequest>()
-            if (req.recipients.isEmpty()) {
-                call.respond(HttpStatusCode.BadRequest, "recipients cannot be empty")
-                return@post
+            call.respondApi {
+                val clientKey = "email:${call.request.local.remoteHost}"
+                if (!SimpleRateLimiter.allow(clientKey, limitPerMinute = AppServices.config().rateLimitPerMinute)) {
+                    respond(HttpStatusCode.TooManyRequests, ApiErrorResponse("rate_limited", listOf("Too many requests, please slow down")))
+                    return@respondApi
+                }
+
+                val req = receive<EmailTestRequest>()
+                val recipients = RequestValidation.recipients(req.recipients)
+                val result = AppServices.emailService().sendAlert(req.subject.trim(), req.body.trim(), recipients)
+
+                when (result) {
+                    is EmailSendResult.Sent -> respond(HttpStatusCode.OK, mapOf("status" to "sent", "recipients" to result.recipients))
+                    is EmailSendResult.Skipped -> respond(HttpStatusCode.Accepted, ApiErrorResponse("email_skipped", listOf(result.reason)))
+                    is EmailSendResult.Failed -> respond(HttpStatusCode.InternalServerError, ApiErrorResponse("email_failed", listOf(result.reason)))
+                }
             }
-            AppServices.emailService().sendAlert(req.subject, req.body, req.recipients)
-            call.respond(HttpStatusCode.OK, "email test processed")
         }
     }
 }
