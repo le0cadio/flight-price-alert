@@ -59,7 +59,7 @@ fun Route.flightRoutes() {
                         destination = normalizedDestination,
                         departureDate = normalizedDepartureDate,
                         lowestPrice = price,
-                        source = if (price == null) "mock-required-no-amadeus-creds" else "amadeus"
+                        source = if (price == null) "unavailable" else "amadeus"
                     )
                 )
             }

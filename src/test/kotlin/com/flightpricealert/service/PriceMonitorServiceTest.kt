@@ -11,11 +11,13 @@ import com.flightpricealert.repository.NotificationLogRepository
 import com.flightpricealert.repository.PriceHistoryRepository
 import kotlinx.coroutines.runBlocking
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.time.YearMonth
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PriceMonitorServiceTest {
@@ -24,6 +26,8 @@ class PriceMonitorServiceTest {
         port = 8080,
         amadeusClientId = null,
         amadeusClientSecret = null,
+        amadeusBaseUrl = "https://test.api.amadeus.com",
+        amadeusMaxDatesPerCheck = 10,
         alertRecipients = listOf("user@example.com"),
         smtpHost = null,
         smtpPort = 587,
@@ -33,11 +37,14 @@ class PriceMonitorServiceTest {
         dbUser = "sa",
         dbPassword = "",
         schedulerIntervalHours = 6L,
+        enableInternalScheduler = false,
         logLevel = "DEBUG",
         requestTimeoutMillis = 5000L,
         requestRetryCount = 1,
         rateLimitPerMinute = 120
     )
+
+    private val futureDate: LocalDate = LocalDate.now().plusMonths(4)
 
     @BeforeTest
     fun setup() {
@@ -45,44 +52,103 @@ class PriceMonitorServiceTest {
         DatabaseFactory.reset()
     }
 
+    private fun createAlert(
+        origin: String = "GRU",
+        destination: String = "BKK",
+        targetPrice: Double? = null
+    ) = AlertRepository.create(
+        origin = origin,
+        destination = destination,
+        departureDateFrom = futureDate,
+        departureDateTo = null,
+        targetPrice = targetPrice,
+        airlines = null
+    )
+
     @Test
-    fun `sends one notification for duplicate prices and sends again when price drops further`() = runBlocking {
-        val alert = AlertRepository.create("GRU", "BKK", 200.0, null)
-        val provider = SequentialPriceProvider(listOf(190.0, 190.0, 180.0))
+    fun `does not notify while still building baseline history`() = runBlocking {
+        val alert = createAlert()
+        val provider = SequentialPriceProvider(listOf(1000.0, 950.0, 900.0))
         val notifier = RecordingNotifier()
         val service = PriceMonitorService(provider, notifier, listOf("user@example.com"))
 
-        val first = service.checkAlert(alert)
-        val second = service.checkAlert(alert)
-        val third = service.checkAlert(alert)
+        repeat(3) { service.checkAlert(alert) }
 
-        assertEquals(190.0, first)
-        assertEquals(190.0, second)
-        assertEquals(180.0, third)
-        assertEquals(2, notifier.sentCount)
-        assertEquals(180.0, NotificationLogRepository.lastSentPrice(requireNotNull(alert.id)))
+        assertEquals(0, notifier.sentCount)
+        assertEquals(3, PriceHistoryRepository.listByAlert(requireNotNull(alert.id)).size)
     }
 
     @Test
-    fun `falls back to mock price when api fails`() = runBlocking {
-        val alert = AlertRepository.create("SAO", "MIA", 1000.0, null)
+    fun `notifies best price once baseline exists and a new low is found`() = runBlocking {
+        val alert = createAlert()
+        val alertId = requireNotNull(alert.id)
+        listOf(1000.0, 980.0, 960.0).forEach { PriceHistoryRepository.add(alertId, it) }
+
+        val provider = SequentialPriceProvider(listOf(700.0))
+        val notifier = RecordingNotifier()
+        val service = PriceMonitorService(provider, notifier, listOf("user@example.com"))
+
+        val price = service.checkAlert(alert)
+
+        assertEquals(700.0, price)
+        assertEquals(1, notifier.sentCount)
+        assertEquals(700.0, NotificationLogRepository.lastSentPrice(alertId))
+    }
+
+    @Test
+    fun `does not notify again unless the price improves further`() = runBlocking {
+        val alert = createAlert()
+        val alertId = requireNotNull(alert.id)
+        listOf(1000.0, 980.0, 960.0).forEach { PriceHistoryRepository.add(alertId, it) }
+
+        val provider = SequentialPriceProvider(listOf(700.0, 700.0, 650.0))
+        val notifier = RecordingNotifier()
+        val service = PriceMonitorService(provider, notifier, listOf("user@example.com"))
+
+        service.checkAlert(alert)
+        service.checkAlert(alert)
+        service.checkAlert(alert)
+
+        assertEquals(2, notifier.sentCount)
+        assertEquals(650.0, NotificationLogRepository.lastSentPrice(alertId))
+    }
+
+    @Test
+    fun `never notifies above the optional target price ceiling`() = runBlocking {
+        val alert = createAlert(targetPrice = 500.0)
+        val alertId = requireNotNull(alert.id)
+        listOf(1000.0, 980.0, 960.0).forEach { PriceHistoryRepository.add(alertId, it) }
+
+        // Best price ever seen (700 < min 960) but still above the 500 ceiling.
+        val provider = SequentialPriceProvider(listOf(700.0))
+        val notifier = RecordingNotifier()
+        val service = PriceMonitorService(provider, notifier, listOf("user@example.com"))
+
+        service.checkAlert(alert)
+
+        assertEquals(0, notifier.sentCount)
+    }
+
+    @Test
+    fun `skips the cycle and records nothing when the provider has no price`() = runBlocking {
+        val alert = createAlert(origin = "SAO", destination = "MIA")
         val provider = FailingPriceProvider()
         val notifier = RecordingNotifier()
         val service = PriceMonitorService(provider, notifier, listOf("user@example.com"))
 
         val price = service.checkAlert(alert)
 
-        assertTrue(price > 0.0)
-        assertEquals(1, PriceHistoryRepository.listByAlert(requireNotNull(alert.id)).size)
-        assertEquals(1, notifier.sentCount)
+        assertNull(price)
+        assertEquals(0, PriceHistoryRepository.listByAlert(requireNotNull(alert.id)).size)
+        assertEquals(0, notifier.sentCount)
     }
 
     @Test
     fun `returns explicit month and range prices from provider`() = runBlocking {
         val provider = object : FlightPriceProvider {
-            override suspend fun findLowestPrice(origin: String, destination: String, departureDate: String): BigDecimal? = nullablePrice(300.0)
-            override suspend fun findLowestPriceByMonth(origin: String, destination: String, month: YearMonth, airlines: List<String>?): BigDecimal? = nullablePrice(250.0)
-            override suspend fun findLowestPriceByDateRange(origin: String, destination: String, startDate: String, endDate: String, airlines: List<String>?): BigDecimal? = nullablePrice(240.0)
+            override suspend fun findLowestPrice(origin: String, destination: String, departureDate: String): BigDecimal? = BigDecimal("300.0")
+            override suspend fun findLowestPriceByMonth(origin: String, destination: String, month: YearMonth, airlines: List<String>?): BigDecimal? = BigDecimal("250.0")
+            override suspend fun findLowestPriceByDateRange(origin: String, destination: String, startDate: String, endDate: String, airlines: List<String>?): BigDecimal? = BigDecimal("240.0")
         }
         val notifier = RecordingNotifier()
         val service = PriceMonitorService(provider, notifier, listOf())
@@ -96,7 +162,7 @@ class PriceMonitorServiceTest {
 
         override suspend fun findLowestPrice(origin: String, destination: String, departureDate: String): BigDecimal? {
             val current = prices[index.getAndIncrement().coerceAtMost(prices.lastIndex)]
-            return nullablePrice(current)
+            return BigDecimal(current.toString())
         }
 
         override suspend fun findLowestPriceByMonth(origin: String, destination: String, month: YearMonth, airlines: List<String>?): BigDecimal? = null
@@ -119,6 +185,3 @@ class PriceMonitorServiceTest {
         }
     }
 }
-
-private fun nullablePrice(value: Double): BigDecimal? = listOf<BigDecimal?>(BigDecimal(value.toString()), null).first()
-

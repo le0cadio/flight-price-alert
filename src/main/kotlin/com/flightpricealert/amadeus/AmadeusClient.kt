@@ -32,7 +32,9 @@ class AmadeusClient(
     private val client: HttpClient,
     private val clientId: String?,
     private val clientSecret: String?,
-    private val requestRetryCount: Int = 1
+    private val requestRetryCount: Int = 1,
+    private val baseUrl: String = "https://test.api.amadeus.com",
+    private val maxDatesPerCheck: Int = 10
 ) : FlightPriceProvider {
     private var token: AccessTokenResponse? = null
     private var tokenValidUntilEpochSec: Long = 0
@@ -43,7 +45,7 @@ class AmadeusClient(
         if (clientId.isNullOrBlank() || clientSecret.isNullOrBlank()) return null
 
         val responseText: String = withRetries {
-            client.post("https://test.api.amadeus.com/v1/security/oauth2/token") {
+            client.post("$baseUrl/v1/security/oauth2/token") {
                 contentType(ContentType.Application.FormUrlEncoded)
                 setBody("grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}")
             }.bodyAsText()
@@ -66,7 +68,8 @@ class AmadeusClient(
         month: YearMonth,
         airlines: List<String>?
     ): BigDecimal? {
-        return findLowestPriceAcrossDates(origin, destination, buildMonthDates(month), airlines)
+        val dates = sampleDates(buildMonthDates(month), maxDatesPerCheck)
+        return findLowestPriceAcrossDates(origin, destination, dates, airlines)
     }
 
     @Suppress("unused")
@@ -80,7 +83,7 @@ class AmadeusClient(
         if (endDate.isBlank()) return null
 
         val dates = buildDateRange(startDate, endDate) ?: return null
-        return findLowestPriceAcrossDates(origin, destination, dates, airlines)
+        return findLowestPriceAcrossDates(origin, destination, sampleDates(dates, maxDatesPerCheck), airlines)
     }
 
     private suspend fun findLowestPrice(
@@ -93,7 +96,7 @@ class AmadeusClient(
 
         return try {
             val resultText: String = withRetries {
-                client.get("https://test.api.amadeus.com/v2/shopping/flight-offers") {
+                client.get("$baseUrl/v2/shopping/flight-offers") {
                     header(HttpHeaders.Authorization, "Bearer ${t.access_token}")
                     url {
                         parameters.append("originLocationCode", origin)
@@ -126,6 +129,19 @@ class AmadeusClient(
         }
 
         return minPrice
+    }
+
+    /**
+     * Evenly samples at most [maxDates] entries from [dates] instead of querying every single
+     * day, so a wide window (e.g. a whole month) doesn't burn through the Amadeus free quota
+     * every time the scheduler runs.
+     */
+    internal fun sampleDates(dates: List<LocalDate>, maxDates: Int): List<LocalDate> {
+        if (maxDates <= 0 || dates.size <= maxDates) return dates
+        val step = dates.size.toDouble() / maxDates
+        return (0 until maxDates)
+            .map { i -> dates[(i * step).toInt().coerceIn(0, dates.lastIndex)] }
+            .distinct()
     }
 
     internal fun buildMonthDates(month: YearMonth): List<LocalDate> {

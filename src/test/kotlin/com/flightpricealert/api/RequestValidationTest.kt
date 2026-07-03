@@ -34,5 +34,34 @@ class RequestValidationTest {
         assertFailsWith<ValidationException> { RequestValidation.recipients(emptyList()) }
         assertFailsWith<ValidationException> { RequestValidation.positivePrice(0.0, "targetPrice") }
     }
+
+    @Test
+    fun `optionalPositivePrice allows null but rejects non positive values`() {
+        assertEquals(null, RequestValidation.optionalPositivePrice(null, "targetPrice"))
+        assertEquals(120.0, RequestValidation.optionalPositivePrice(120.0, "targetPrice"))
+        assertFailsWith<ValidationException> { RequestValidation.optionalPositivePrice(-1.0, "targetPrice") }
+    }
+
+    @Test
+    fun `alertTravelWindow accepts a single future date or a valid range`() {
+        val futureDate = java.time.LocalDate.now().plusMonths(4)
+        val (from, to) = RequestValidation.alertTravelWindow(futureDate.toString(), null)
+        assertEquals(futureDate, from)
+        assertEquals(null, to)
+
+        val futureEnd = futureDate.plusDays(5)
+        val (rangeFrom, rangeTo) = RequestValidation.alertTravelWindow(futureDate.toString(), futureEnd.toString())
+        assertEquals(futureDate, rangeFrom)
+        assertEquals(futureEnd, rangeTo)
+    }
+
+    @Test
+    fun `alertTravelWindow rejects past dates and inverted ranges`() {
+        assertFailsWith<ValidationException> { RequestValidation.alertTravelWindow("2020-01-01", null) }
+        val futureDate = java.time.LocalDate.now().plusMonths(4)
+        assertFailsWith<ValidationException> {
+            RequestValidation.alertTravelWindow(futureDate.toString(), futureDate.minusDays(1).toString())
+        }
+    }
 }
 

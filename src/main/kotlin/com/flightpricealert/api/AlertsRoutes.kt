@@ -13,7 +13,9 @@ import kotlinx.serialization.Serializable
 data class CreateAlertRequest(
     val origin: String,
     val destination: String,
-    val targetPrice: Double,
+    val departureDateFrom: String,
+    val departureDateTo: String? = null,
+    val targetPrice: Double? = null,
     val airlines: List<String>? = null
 )
 
@@ -21,7 +23,9 @@ data class CreateAlertRequest(
 data class UpdateAlertRequest(
     val origin: String,
     val destination: String,
-    val targetPrice: Double,
+    val departureDateFrom: String,
+    val departureDateTo: String? = null,
+    val targetPrice: Double? = null,
     val airlines: List<String>? = null,
     val active: Boolean = true
 )
@@ -36,12 +40,15 @@ fun Route.alertsRoutes() {
                 val req = receive<CreateAlertRequest>()
                 val origin = RequestValidation.iata(req.origin, "origin")
                 val destination = RequestValidation.iata(req.destination, "destination")
-                val targetPrice = RequestValidation.positivePrice(req.targetPrice, "targetPrice")
+                val (departureDateFrom, departureDateTo) = RequestValidation.alertTravelWindow(req.departureDateFrom, req.departureDateTo)
+                val targetPrice = RequestValidation.optionalPositivePrice(req.targetPrice, "targetPrice")
                 val airlines = RequestValidation.airlineCodes(req.airlines)
 
                 val created: FlightAlert = AlertRepository.create(
                     origin = origin,
                     destination = destination,
+                    departureDateFrom = departureDateFrom,
+                    departureDateTo = departureDateTo,
                     targetPrice = targetPrice,
                     airlines = airlines
                 )
@@ -69,13 +76,16 @@ fun Route.alertsRoutes() {
                 val req = receive<UpdateAlertRequest>()
                 val origin = RequestValidation.iata(req.origin, "origin")
                 val destination = RequestValidation.iata(req.destination, "destination")
-                val targetPrice = RequestValidation.positivePrice(req.targetPrice, "targetPrice")
+                val (departureDateFrom, departureDateTo) = RequestValidation.alertTravelWindow(req.departureDateFrom, req.departureDateTo)
+                val targetPrice = RequestValidation.optionalPositivePrice(req.targetPrice, "targetPrice")
                 val airlines = RequestValidation.airlineCodes(req.airlines)
 
                 val updated = AlertRepository.update(
                     id = id,
                     origin = origin,
                     destination = destination,
+                    departureDateFrom = departureDateFrom,
+                    departureDateTo = departureDateTo,
                     targetPrice = targetPrice,
                     airlines = airlines,
                     active = req.active
@@ -103,6 +113,3 @@ fun Route.alertsRoutes() {
         }
     }
 }
-
-
-

@@ -21,6 +21,8 @@ data class AppConfig(
     val port: Int,
     val amadeusClientId: String?,
     val amadeusClientSecret: String?,
+    val amadeusBaseUrl: String,
+    val amadeusMaxDatesPerCheck: Int,
     val alertRecipients: List<String>,
     val smtpHost: String?,
     val smtpPort: Int,
@@ -30,6 +32,7 @@ data class AppConfig(
     val dbUser: String,
     val dbPassword: String,
     val schedulerIntervalHours: Long,
+    val enableInternalScheduler: Boolean,
     val logLevel: String,
     val requestTimeoutMillis: Long,
     val requestRetryCount: Int,
@@ -43,6 +46,9 @@ object Config {
 
         val amadeusClientId = System.getenv("AMADEUS_CLIENT_ID")
         val amadeusClientSecret = System.getenv("AMADEUS_CLIENT_SECRET")
+        val amadeusBaseUrl = System.getenv("AMADEUS_BASE_URL")?.trim()?.takeIf { it.isNotBlank() }
+            ?.removeSuffix("/") ?: "https://test.api.amadeus.com"
+        val amadeusMaxDatesPerCheck = System.getenv("AMADEUS_MAX_DATES_PER_CHECK")?.toIntOrNull() ?: 10
         val alertRecipients = parseRecipients(
             System.getenv("ALERT_RECIPIENTS") ?: System.getenv("ALERT_RECIPIENT")
         )
@@ -57,6 +63,7 @@ object Config {
         val dbPassword = System.getenv("DB_PASSWORD") ?: ""
 
         val schedulerIntervalHours = System.getenv("SCHEDULER_INTERVAL_HOURS")?.toLongOrNull() ?: 6L
+        val enableInternalScheduler = System.getenv("ENABLE_INTERNAL_SCHEDULER")?.toBooleanStrictOrNull() ?: false
         val logLevel = System.getenv("LOG_LEVEL") ?: if (appEnvironment == AppEnvironment.PROD) "INFO" else "DEBUG"
         val requestTimeoutMillis = System.getenv("HTTP_TIMEOUT_MS")?.toLongOrNull()
             ?: if (appEnvironment == AppEnvironment.PROD) 15_000L else 10_000L
@@ -70,6 +77,8 @@ object Config {
             port = port,
             amadeusClientId = amadeusClientId,
             amadeusClientSecret = amadeusClientSecret,
+            amadeusBaseUrl = amadeusBaseUrl,
+            amadeusMaxDatesPerCheck = amadeusMaxDatesPerCheck,
             alertRecipients = alertRecipients,
             smtpHost = smtpHost,
             smtpPort = smtpPort,
@@ -79,6 +88,7 @@ object Config {
             dbUser = dbUser,
             dbPassword = dbPassword,
             schedulerIntervalHours = schedulerIntervalHours,
+            enableInternalScheduler = enableInternalScheduler,
             logLevel = logLevel,
             requestTimeoutMillis = requestTimeoutMillis,
             requestRetryCount = requestRetryCount,

@@ -3,6 +3,9 @@
 build/
 out/
 
+# ===== Local database (H2) =====
+data/
+
 # ===== IntelliJ =====
 .idea/
 *.iml

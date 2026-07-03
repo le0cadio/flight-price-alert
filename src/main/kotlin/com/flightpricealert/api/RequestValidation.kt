@@ -49,6 +49,11 @@ object RequestValidation {
         return value
     }
 
+    fun optionalPositivePrice(value: Double?, fieldName: String): Double? {
+        if (value == null) return null
+        return positivePrice(value, fieldName)
+    }
+
     fun month(value: String?, fieldName: String = "month"): YearMonth {
         val raw = value?.trim().orEmpty()
         try {
@@ -72,6 +77,18 @@ object RequestValidation {
         val end = date(endDate, "endDate")
         if (end.isBefore(start)) {
             throw ValidationException(listOf("endDate must be greater than or equal to startDate"))
+        }
+        return start to end
+    }
+
+    fun alertTravelWindow(departureDateFrom: String?, departureDateTo: String?): Pair<LocalDate, LocalDate?> {
+        val start = date(departureDateFrom, "departureDateFrom")
+        if (start.isBefore(LocalDate.now())) {
+            throw ValidationException(listOf("departureDateFrom must not be in the past"))
+        }
+        val end = departureDateTo?.takeIf { it.isNotBlank() }?.let { date(it, "departureDateTo") }
+        if (end != null && end.isBefore(start)) {
+            throw ValidationException(listOf("departureDateTo must be greater than or equal to departureDateFrom"))
         }
         return start to end
     }

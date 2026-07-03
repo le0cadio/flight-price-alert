@@ -6,6 +6,7 @@ import java.time.YearMonth
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class AmadeusClientRangeTest {
 
@@ -25,6 +26,26 @@ class AmadeusClientRangeTest {
         assertEquals(28, dates.size)
         assertEquals("2026-02-01", dates.first().toString())
         assertEquals("2026-02-28", dates.last().toString())
+    }
+
+    @Test
+    fun `sampleDates caps a wide window to protect the free quota`() {
+        val amadeus = AmadeusClient(HttpClient(CIO), null, null)
+        val dates = amadeus.buildMonthDates(YearMonth.of(2026, 11))
+
+        val sampled = amadeus.sampleDates(dates, maxDates = 10)
+
+        assertEquals(10, sampled.size)
+        assertEquals(dates.first(), sampled.first())
+        assertTrue(sampled.all { it in dates })
+    }
+
+    @Test
+    fun `sampleDates returns all dates when under the cap`() {
+        val amadeus = AmadeusClient(HttpClient(CIO), null, null)
+        val dates = amadeus.buildDateRange("2026-06-01", "2026-06-03")!!
+
+        assertEquals(dates, amadeus.sampleDates(dates, maxDates = 10))
     }
 
     @Test

@@ -77,10 +77,12 @@ fun Application.module() {
                     "environment" to cfg.appEnvironment.name,
                     "port" to cfg.port,
                     "schedulerIntervalHours" to cfg.schedulerIntervalHours,
+                    "enableInternalScheduler" to cfg.enableInternalScheduler,
                     "rateLimitPerMinute" to cfg.rateLimitPerMinute,
                     "requestTimeoutMillis" to cfg.requestTimeoutMillis,
                     "requestRetryCount" to cfg.requestRetryCount,
                     "amadeusConfigured" to (!cfg.amadeusClientId.isNullOrBlank() && !cfg.amadeusClientSecret.isNullOrBlank()),
+                    "amadeusBaseUrl" to cfg.amadeusBaseUrl,
                     "smtpConfigured" to (!cfg.smtpHost.isNullOrBlank()),
                     "database" to cfg.dbUrl
                 )
@@ -88,12 +90,14 @@ fun Application.module() {
         }
     }
 
-    val scope = CoroutineScope(SupervisorJob())
-    scope.launch {
-        com.flightpricealert.scheduler.SchedulerService.start(
-            scope = scope,
-            intervalHours = cfg.schedulerIntervalHours,
-            worker = { AppServices.monitorService().checkAllActiveAlerts() }
-        )
+    if (cfg.enableInternalScheduler) {
+        val scope = CoroutineScope(SupervisorJob())
+        scope.launch {
+            com.flightpricealert.scheduler.SchedulerService.start(
+                scope = scope,
+                intervalHours = cfg.schedulerIntervalHours,
+                worker = { AppServices.monitorService().checkAllActiveAlerts() }
+            )
+        }
     }
 }

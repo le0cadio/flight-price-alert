@@ -26,7 +26,9 @@ object AppServices {
             httpClient,
             config.amadeusClientId,
             config.amadeusClientSecret,
-            requestRetryCount = config.requestRetryCount
+            requestRetryCount = config.requestRetryCount,
+            baseUrl = config.amadeusBaseUrl,
+            maxDatesPerCheck = config.amadeusMaxDatesPerCheck
         )
         val emailService = EmailService(
             ConfigHolder(

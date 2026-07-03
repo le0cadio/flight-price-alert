@@ -1,0 +1,38 @@
+name: Check flight prices
+
+on:
+  schedule:
+    # Every 6 hours. GitHub does not guarantee exact timing for scheduled workflows,
+    # small delays are normal and harmless here.
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Run price checks
+        run: ./gradlew runChecks --no-daemon
+        env:
+          APP_ENV: prod
+          AMADEUS_CLIENT_ID: ${{ secrets.AMADEUS_CLIENT_ID }}
+          AMADEUS_CLIENT_SECRET: ${{ secrets.AMADEUS_CLIENT_SECRET }}
+          AMADEUS_BASE_URL: ${{ secrets.AMADEUS_BASE_URL }}
+          AMADEUS_MAX_DATES_PER_CHECK: ${{ secrets.AMADEUS_MAX_DATES_PER_CHECK }}
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          ALERT_RECIPIENTS: ${{ secrets.ALERT_RECIPIENTS }}

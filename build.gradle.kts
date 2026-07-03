@@ -77,11 +77,12 @@ dependencies {
 
     // JSON
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
-    // Database - Exposed + H2 (in-memory)
+    // Database - raw JDBC against H2 (tests/local) or Postgres/Supabase (production)
     implementation("org.jetbrains.exposed:exposed-core:0.41.1")
     implementation("org.jetbrains.exposed:exposed-dao:0.41.1")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.41.1")
     implementation("com.h2database:h2:2.2.220")
+    implementation("org.postgresql:postgresql:42.7.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     // Mail
     implementation("com.sun.mail:javax.mail:1.6.2")
@@ -101,4 +102,11 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.register<JavaExec>("runChecks") {
+    group = "application"
+    description = "Runs a single price-check cycle for all active alerts and exits (used by the GitHub Actions cron workflow)."
+    mainClass.set("com.flightpricealert.RunChecksKt")
+    classpath = sourceSets["main"].runtimeClasspath
 }
