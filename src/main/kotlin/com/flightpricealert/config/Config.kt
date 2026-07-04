@@ -40,36 +40,39 @@ data class AppConfig(
 )
 
 object Config {
-    fun load(): AppConfig {
-        val appEnvironment = AppEnvironment.from(System.getenv("APP_ENV"))
-        val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
+    // CI systems (e.g. GitHub Actions) inject unset secrets as empty strings, so a blank
+    // variable must fall back to the default exactly like an absent one.
+    private fun env(name: String): String? = System.getenv(name)?.trim()?.takeIf { it.isNotBlank() }
 
-        val amadeusClientId = System.getenv("AMADEUS_CLIENT_ID")
-        val amadeusClientSecret = System.getenv("AMADEUS_CLIENT_SECRET")
-        val amadeusBaseUrl = System.getenv("AMADEUS_BASE_URL")?.trim()?.takeIf { it.isNotBlank() }
-            ?.removeSuffix("/") ?: "https://test.api.amadeus.com"
-        val amadeusMaxDatesPerCheck = System.getenv("AMADEUS_MAX_DATES_PER_CHECK")?.toIntOrNull() ?: 10
+    fun load(): AppConfig {
+        val appEnvironment = AppEnvironment.from(env("APP_ENV"))
+        val port = env("PORT")?.toIntOrNull() ?: 8080
+
+        val amadeusClientId = env("AMADEUS_CLIENT_ID")
+        val amadeusClientSecret = env("AMADEUS_CLIENT_SECRET")
+        val amadeusBaseUrl = env("AMADEUS_BASE_URL")?.removeSuffix("/") ?: "https://test.api.amadeus.com"
+        val amadeusMaxDatesPerCheck = env("AMADEUS_MAX_DATES_PER_CHECK")?.toIntOrNull() ?: 10
         val alertRecipients = parseRecipients(
-            System.getenv("ALERT_RECIPIENTS") ?: System.getenv("ALERT_RECIPIENT")
+            env("ALERT_RECIPIENTS") ?: env("ALERT_RECIPIENT")
         )
 
-        val smtpHost = System.getenv("SMTP_HOST")
-        val smtpPort = System.getenv("SMTP_PORT")?.toIntOrNull() ?: 587
-        val smtpUser = System.getenv("SMTP_USER")
-        val smtpPassword = System.getenv("SMTP_PASSWORD")
+        val smtpHost = env("SMTP_HOST")
+        val smtpPort = env("SMTP_PORT")?.toIntOrNull() ?: 587
+        val smtpUser = env("SMTP_USER")
+        val smtpPassword = env("SMTP_PASSWORD")
 
-        val dbUrl = System.getenv("DB_URL") ?: "jdbc:h2:file:./data/flightdb;AUTO_SERVER=TRUE;MODE=PostgreSQL"
-        val dbUser = System.getenv("DB_USER") ?: "sa"
-        val dbPassword = System.getenv("DB_PASSWORD") ?: ""
+        val dbUrl = env("DB_URL") ?: "jdbc:h2:file:./data/flightdb;AUTO_SERVER=TRUE;MODE=PostgreSQL"
+        val dbUser = env("DB_USER") ?: "sa"
+        val dbPassword = env("DB_PASSWORD") ?: ""
 
-        val schedulerIntervalHours = System.getenv("SCHEDULER_INTERVAL_HOURS")?.toLongOrNull() ?: 6L
-        val enableInternalScheduler = System.getenv("ENABLE_INTERNAL_SCHEDULER")?.toBooleanStrictOrNull() ?: false
-        val logLevel = System.getenv("LOG_LEVEL") ?: if (appEnvironment == AppEnvironment.PROD) "INFO" else "DEBUG"
-        val requestTimeoutMillis = System.getenv("HTTP_TIMEOUT_MS")?.toLongOrNull()
+        val schedulerIntervalHours = env("SCHEDULER_INTERVAL_HOURS")?.toLongOrNull() ?: 6L
+        val enableInternalScheduler = env("ENABLE_INTERNAL_SCHEDULER")?.toBooleanStrictOrNull() ?: false
+        val logLevel = env("LOG_LEVEL") ?: if (appEnvironment == AppEnvironment.PROD) "INFO" else "DEBUG"
+        val requestTimeoutMillis = env("HTTP_TIMEOUT_MS")?.toLongOrNull()
             ?: if (appEnvironment == AppEnvironment.PROD) 15_000L else 10_000L
-        val requestRetryCount = System.getenv("HTTP_RETRY_COUNT")?.toIntOrNull()
+        val requestRetryCount = env("HTTP_RETRY_COUNT")?.toIntOrNull()
             ?: if (appEnvironment == AppEnvironment.PROD) 3 else 1
-        val rateLimitPerMinute = System.getenv("RATE_LIMIT_PER_MINUTE")?.toIntOrNull()
+        val rateLimitPerMinute = env("RATE_LIMIT_PER_MINUTE")?.toIntOrNull()
             ?: if (appEnvironment == AppEnvironment.PROD) 30 else 120
 
         return AppConfig(
